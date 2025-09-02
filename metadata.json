@@ -1,0 +1,4 @@
+{
+  "name": "Uber Invoice Generator",
+  "description": "A React application that generates a professional-looking Uber-style tax invoice based on user input. Users can enter details like date, price, driver name, and pickup address to create a printable bill."
+}
