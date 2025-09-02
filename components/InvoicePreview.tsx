@@ -37,7 +37,7 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ data }) => {
                     <div className="flex justify-between items-start mb-10">
                         <div>
                             <h3 className="font">{data.customerName}</h3>
-                            <p>Pick up address: {data.pickupAddress}</p>
+                            <p className="break-words max-w-xs print:max-w-xs whitespace-pre-line">Pick up address: {data.pickupAddress}</p>
                         </div>
                         <h2 className="text-xl font text-right">Tax Invoice</h2>
                     </div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getRandomDriverName } from './randomDriverName';
 import type { InvoiceFormData } from '../types';
 
 interface InvoiceFormProps {
@@ -34,10 +35,10 @@ const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', val
 export const InvoiceForm: React.FC<InvoiceFormProps> = ({ onGenerate }) => {
     const [formData, setFormData] = useState<InvoiceFormData>({
         customerName: 'Shashi Kiran',
-        pickupAddress: 'Shivaji Nagar, Bengaluru, Karnataka 560001, India',
+        pickupAddress: '#32, RMS Arcade, Vyalikaval HBCS Layout, Bengaluru, Karnataka 560001',
         invoiceDate: new Date().toISOString().split('T')[0],
-        driverName: 'NARENDRAN NARENDRAN',
-        price: '43.40',
+        driverName: 'Narendran',
+        price: '213.80',
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -50,13 +51,23 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({ onGenerate }) => {
         onGenerate(formData);
     };
     
+    const handleRandomDriver = async () => {
+        const name = await getRandomDriverName();
+        setFormData(prev => ({ ...prev, driverName: name }));
+    };
+
     return (
         <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md border border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Invoice Details</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <InputField label="Customer Name" name="customerName" value={formData.customerName} onChange={handleChange} />
                 <InputField label="Pickup Address" name="pickupAddress" value={formData.pickupAddress} onChange={handleChange} />
-                <InputField label="Driver Name" name="driverName" value={formData.driverName} onChange={handleChange} />
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <InputField label="Driver Name" name="driverName" value={formData.driverName} onChange={handleChange} />
+                  </div>
+                  <button type="button" onClick={handleRandomDriver} className="mb-1 px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 text-xs font-semibold border border-gray-300">Random Driver Name</button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <InputField label="Date" name="invoiceDate" type="date" value={formData.invoiceDate} onChange={handleChange} />
                     <InputField label="Total Price (INR)" name="price" type="number" value={formData.price} onChange={handleChange} />
