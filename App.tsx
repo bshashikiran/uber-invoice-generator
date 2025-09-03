@@ -115,40 +115,6 @@ function App() {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">Bulk Invoice Preview ({bulkInvoices.length})</h3>
-                  <button
-                    className="px-4 py-2 bg-indigo-600 text-white rounded shadow hover:bg-indigo-700 disabled:opacity-60"
-                    onClick={async () => {
-                      setPdfLoading(true);
-                      for (let i = 0; i < bulkInvoices.length; i++) {
-                        const container = document.createElement('div');
-                        container.style.position = 'fixed';
-                        container.style.left = '-9999px';
-                        document.body.appendChild(container);
-                        const invoice = bulkInvoices[i];
-                        const InvoicePreviewComp = require('./components/InvoicePreview').InvoicePreview;
-                        const el = document.createElement('div');
-                        container.appendChild(el);
-                        // Render InvoicePreview into el
-                        const root = require('react-dom/client').createRoot(el);
-                        root.render(React.createElement(InvoicePreviewComp, { data: invoice }));
-                        await new Promise(res => setTimeout(res, 500)); // Wait for render
-                        const canvas = await html2canvas(el, { scale: 2 });
-                        const imgData = canvas.toDataURL('image/png');
-                        const pdf = new jsPDF('p', 'pt', 'a4');
-                        const imgProps = pdf.getImageProperties(imgData);
-                        const pdfWidth = pdf.internal.pageSize.getWidth();
-                        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                        pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
-                        root.unmount();
-                        document.body.removeChild(container);
-                      }
-                      setPdfLoading(false);
-                    }}
-                    disabled={pdfLoading}
-                  >
-                    {pdfLoading ? 'Downloading...' : 'Download All as PDFs'}
-                  </button>
                 </div>
                 <div ref={bulkPreviewRef}>
                   <BulkInvoicePreview invoices={bulkInvoices} />
