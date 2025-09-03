@@ -1,10 +1,20 @@
 import React, { useState, useCallback } from 'react';
 import type { InvoiceFormData, InvoiceData } from './types';
+
 import { InvoiceForm } from './components/InvoiceForm';
 import { InvoicePreview } from './components/InvoicePreview';
+import { BulkInvoiceForm } from './components/BulkInvoiceForm';
+import { BulkInvoicePreview } from './components/BulkInvoicePreview';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 function App() {
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
+  const [bulkInvoices, setBulkInvoices] = useState<InvoiceData[] | null>(null);
+  const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
+  const bulkPreviewRef = React.useRef<HTMLDivElement>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  // Always show previews after bulk generation
 
   const generateInvoiceNumber = () => {
     const randomPart = Math.floor(100000 + Math.random() * 900000);
@@ -45,6 +55,28 @@ function App() {
       invoiceNumber: generateInvoiceNumber(),
       formattedDate: formatDate(formData.invoiceDate),
     });
+    setBulkInvoices(null);
+  }, []);
+
+  const handleBulkGenerate = useCallback((forms: InvoiceFormData[]) => {
+    const invoices: InvoiceData[] = forms.map(formData => {
+      const price = parseFloat(formData.price);
+      const totalAmount = price;
+      const netAmount = totalAmount / 1.05;
+      const cgst = netAmount * 0.025;
+      const sgst = netAmount * 0.025;
+      return {
+        ...formData,
+        totalAmount,
+        netAmount,
+        cgst,
+        sgst,
+        invoiceNumber: generateInvoiceNumber(),
+        formattedDate: formatDate(formData.invoiceDate),
+      };
+    });
+    setBulkInvoices(invoices);
+    setInvoiceData(invoices[0] || null);
   }, []);
 
   return (
@@ -56,21 +88,81 @@ function App() {
         </div>
       </header>
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
+        <nav className="mb-8 flex space-x-4 print:hidden">
+          <button
+            className={`px-4 py-2 rounded-t-md font-semibold border-b-2 transition-colors duration-150 ${activeTab === 'single' ? 'border-indigo-600 text-indigo-700 bg-white' : 'border-transparent text-gray-500 bg-gray-100 hover:text-indigo-600'}`}
+            onClick={() => setActiveTab('single')}
+          >
+            Single Bill Generation
+          </button>
+          <button
+            className={`px-4 py-2 rounded-t-md font-semibold border-b-2 transition-colors duration-150 ${activeTab === 'bulk' ? 'border-indigo-600 text-indigo-700 bg-white' : 'border-transparent text-gray-500 bg-gray-100 hover:text-indigo-600'}`}
+            onClick={() => setActiveTab('bulk')}
+          >
+            Bulk Bill Generation
+          </button>
+        </nav>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 print:block">
           <div className="lg:col-span-2 print:hidden">
-            <InvoiceForm onGenerate={handleGenerateInvoice} />
+            {activeTab === 'single' && <InvoiceForm onGenerate={handleGenerateInvoice} />}
+            {activeTab === 'bulk' && <BulkInvoiceForm onBulkGenerate={handleBulkGenerate} />}
           </div>
           <div className="lg:col-span-3">
-            {invoiceData ? (
+            {activeTab === 'single' && invoiceData && (
               <InvoicePreview data={invoiceData} />
-            ) : (
+            )}
+            {activeTab === 'bulk' && bulkInvoices && bulkInvoices.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Bulk Invoice Preview ({bulkInvoices.length})</h3>
+                  <button
+                    className="px-4 py-2 bg-indigo-600 text-white rounded shadow hover:bg-indigo-700 disabled:opacity-60"
+                    onClick={async () => {
+                      setPdfLoading(true);
+                      for (let i = 0; i < bulkInvoices.length; i++) {
+                        const container = document.createElement('div');
+                        container.style.position = 'fixed';
+                        container.style.left = '-9999px';
+                        document.body.appendChild(container);
+                        const invoice = bulkInvoices[i];
+                        const InvoicePreviewComp = require('./components/InvoicePreview').InvoicePreview;
+                        const el = document.createElement('div');
+                        container.appendChild(el);
+                        // Render InvoicePreview into el
+                        const root = require('react-dom/client').createRoot(el);
+                        root.render(React.createElement(InvoicePreviewComp, { data: invoice }));
+                        await new Promise(res => setTimeout(res, 500)); // Wait for render
+                        const canvas = await html2canvas(el, { scale: 2 });
+                        const imgData = canvas.toDataURL('image/png');
+                        const pdf = new jsPDF('p', 'pt', 'a4');
+                        const imgProps = pdf.getImageProperties(imgData);
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                        pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
+                        root.unmount();
+                        document.body.removeChild(container);
+                      }
+                      setPdfLoading(false);
+                    }}
+                    disabled={pdfLoading}
+                  >
+                    {pdfLoading ? 'Downloading...' : 'Download All as PDFs'}
+                  </button>
+                </div>
+                <div ref={bulkPreviewRef}>
+                  <BulkInvoicePreview invoices={bulkInvoices} />
+                </div>
+              </div>
+            )}
+            {activeTab === 'bulk' && (!bulkInvoices || bulkInvoices.length === 0) && (
               <div className="flex items-center justify-center bg-white h-full rounded-lg shadow-md border border-gray-200 min-h-[600px]">
                 <div className="text-center p-8">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  <h2 className="mt-4 text-xl font-medium text-gray-900">Invoice Preview</h2>
-                  <p className="mt-1 text-sm text-gray-500">Fill out the form to see your invoice here.</p>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h2 className="mt-4 text-xl font-medium text-gray-900">Bulk Invoice Preview</h2>
+                  <p className="mt-1 text-sm text-gray-500">Generate bulk invoices to preview and download them here.</p>
                 </div>
               </div>
             )}
